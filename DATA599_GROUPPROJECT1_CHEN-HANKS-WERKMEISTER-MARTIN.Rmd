@@ -9,10 +9,7 @@ date: "2023-02-09"
 knitr::opts_chunk$set(echo = TRUE)
 
 ```
-
-GROUP PROJECT -  
-BUDBREAK 
-
+git 
 Preparing dataset budClippings for analysis: 
 ```{r}
 knitr::opts_knit$set(root.dir = "/Users/charleshanks/repos/surv-analysis-bud-break")
@@ -42,12 +39,11 @@ ds = ds %>% rename_all(funs(tolower(.))) %>%
 
 Event plot:
 ```{r}
-
-
 ds %>% ggplot() + 
-			geom_segment(aes(x = 0, y = fct_reorder(index, duration_to_budbreak,.desc = TRUE), 
-											 xend = duration_to_budbreak, yend = fct_reorder(index, duration_to_budbreak,.desc = TRUE))) + 
-			geom_point(aes(x = duration_to_budbreak, y = index), color = "blue") + facet_wrap(cultivar~.)
+		geom_segment(aes(x = 0, y = fct_reorder(index, duration_to_budbreak,.desc = TRUE), 
+										xend = duration_to_budbreak, yend = fct_reorder(index, duration_to_budbreak,.desc = TRUE))) + 
+		geom_point(aes(x = duration_to_budbreak, y = index), color = "blue") + facet_wrap(cultivar~.) 
+      
 	
 ```
 
@@ -71,15 +67,15 @@ cs50$index = as.factor(cs50$index)
 
 cs50 %>%
   ggplot() + 
-			geom_segment(aes(x = 0, y = fct_reorder(index, duration_to_budbreak,.desc = TRUE), 
+	  geom_segment(aes(x = 0, y = fct_reorder(index, duration_to_budbreak,.desc = TRUE), 
 											 xend = duration_to_budbreak, yend = fct_reorder(index, duration_to_budbreak,.desc = TRUE))) + 
-			geom_point(aes(x = duration_to_budbreak, y = index,color ="cyan 4")) + labs(title = "Cabernet Sauvignon")
+	  geom_point(aes(x = duration_to_budbreak, y = index,color ="cyan 4")) + labs(title = "Cabernet Sauvignon")
 
 ch50 %>%
   ggplot() + 
-			geom_segment(aes(x = 0, y = fct_reorder(index, duration_to_budbreak,.desc = TRUE), 
+	  geom_segment(aes(x = 0, y = fct_reorder(index, duration_to_budbreak,.desc = TRUE), 
 											 xend = duration_to_budbreak, yend = fct_reorder(index, duration_to_budbreak,.desc = TRUE))) + 
-			geom_point(aes(x = duration_to_budbreak, y = index,color ="cyan 4")) + labs(title = "Chardonnay")
+	  geom_point(aes(x = duration_to_budbreak, y = index,color ="cyan 4")) + labs(title = "Chardonnay")
 
 
 
