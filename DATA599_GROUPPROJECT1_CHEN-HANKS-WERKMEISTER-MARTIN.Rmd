@@ -25,7 +25,7 @@ library(survminer)
 ds = read_excel('/Users/charleshanks/repos/surv-analysis-bud-break/budClippings.xlsx')
 
 #Creating status column so that 0 = censored, 1 = event
-ds$status = ifelse(ds$censored==0,1,0)
+ds$status = ifelse(ds$Censored==0,1,0)
 
 #Addiing index column so give a unique ID for each observation: 
 ds$index = as.factor(1:nrow(ds))
@@ -35,15 +35,23 @@ ds = ds %>% rename_all(funs(tolower(.))) %>%
   rename_all(funs(str_replace_all(., " ", "_")))
 
 ```
+```{r}
+ds %>% filter(status == 0) %>% group_by(cultivar) %>% count()
+
+ds %>% group_by(year) %>% summarize(cultivar, duration_to_budbreak, status)
+
+```
 
 
 Event plot:
 ```{r}
 ds %>% ggplot() + 
 		geom_segment(aes(x = 0, y = fct_reorder(index, duration_to_budbreak,.desc = TRUE), 
-										xend = duration_to_budbreak, yend = fct_reorder(index, duration_to_budbreak,.desc = TRUE))) + 
-		geom_point(aes(x = duration_to_budbreak, y = index), color = "blue") + facet_wrap(cultivar~.) 
-      
+										xend = duration_to_budbreak, yend = fct_reorder(index, duration_to_budbreak,.desc = TRUE),color = as.factor(status))) + 
+		geom_point(aes(x = duration_to_budbreak, y = index, color = as.factor(status))) + facet_wrap(cultivar~.) + 
+    labs(y = "Observation", x = "Duration to Budbreak")
+    
+ds %>% group_by(cultivar, status) %>% summarize(n = n(), average_time_budbreak = mean(duration_to_budbreak), min_budbreak = min(duration_to_budbreak), max_budbreak= max(duration_to_budbreak))
 	
 ```
 
@@ -55,6 +63,11 @@ cs = ds %>% filter(cultivar == "CS")
 ch50 = sample_n(ch,50, replace = FALSE)
 cs50 = sample_n(cs,50, replace = FALSE)
 
+ch25 = sample_n(ch,25, replace = FALSE)
+cs25 = sample_n(cs,25, replace = FALSE)
+
+ch80 
+
 ch50 = ch50 %>% select(-index)
 ch50$index = 1:nrow(ch50)
 
@@ -65,20 +78,46 @@ cs50$index = 51:100
 
 cs50$index = as.factor(cs50$index)
 
-cs50 %>%
-  ggplot() + 
-	  geom_segment(aes(x = 0, y = fct_reorder(index, duration_to_budbreak,.desc = TRUE), 
-											 xend = duration_to_budbreak, yend = fct_reorder(index, duration_to_budbreak,.desc = TRUE))) + 
-	  geom_point(aes(x = duration_to_budbreak, y = index,color ="cyan 4")) + labs(title = "Cabernet Sauvignon")
-
 ch50 %>%
   ggplot() + 
 	  geom_segment(aes(x = 0, y = fct_reorder(index, duration_to_budbreak,.desc = TRUE), 
 											 xend = duration_to_budbreak, yend = fct_reorder(index, duration_to_budbreak,.desc = TRUE))) + 
-	  geom_point(aes(x = duration_to_budbreak, y = index,color ="cyan 4")) + labs(title = "Chardonnay")
+	  geom_point(aes(x = duration_to_budbreak, y = index,color = as.factor(status))) + 
+    labs(title = "82% of 50 Randomly Sampled CH Buds break before Day 50",
+         y = "Cutting ID",
+         x = "Duration to Budbreak",
+         color = "Event Status") + 
+    scale_color_manual(values = c("black", "green")) +
+    geom_vline(xintercept = 50, linetype = "longdash", color = "black") + 
+    theme(title = element_text(face = "bold", size = 13, color = "gold"),
+        panel.background = element_rect(fill = "white"),
+        plot.background = element_rect(fill = "dodgerblue1"),
+        panel.grid.minor = element_line(color = "grey"),
+        legend.key = element_rect(fill = "dodgerblue1"),
+        legend.background = element_rect(fill = "dodgerblue1"))
 
+cs50 %>%
+  ggplot() + 
+	  geom_segment(aes(x = 0, y = fct_reorder(index, duration_to_budbreak,.desc = TRUE), 
+											 xend = duration_to_budbreak, yend = fct_reorder(index, duration_to_budbreak,.desc = TRUE))) + 
+	  geom_point(aes(x = duration_to_budbreak, y = index,color = as.factor(status))) + 
+    labs(title = "74% of 50 Randomly Sampled CS Buds break before Day 50 ",
+	       y = "Cutting ID",
+         x = "Duration to Budbreak",
+         color = "Event Status") + 
+    scale_color_manual(values = c("black", "green")) +
+    geom_vline(xintercept = 50, linetype = "longdash", color = "black") +
+    theme(title = element_text(face = "bold", size = 13, color = "darkred"),
+        panel.background = element_rect(fill = "white"),
+        plot.background = element_rect(fill = "dodgerblue1"),
+        panel.grid.minor = element_line(color = "grey"),
+        legend.key = element_rect(fill = "dodgerblue1"),
+        legend.background = element_rect(fill = "dodgerblue1"))
 
+ch50 %>% filter(duration_to_budbreak <= 50) %>% nrow()/50
+cs50 %>% filter(duration_to_budbreak <=50) %>% nrow()/50
 
+ds %>% group_by(cultivar) %>% summarize(n = n(), median = median(duration_to_budbreak), mean = mean(duration_to_budbreak))
 
 ```
 
@@ -90,11 +129,11 @@ ds %>% filter(cultivar == "CH") %>% ggplot(aes(x = duration_to_budbreak)) + geom
   labs(title = "Chard", y = "Count") + labs(title = "75% of Bud Break for Chardonnay Occured Within First 50 Days", subtitle = "Second Bud Break Period Occurs Between 150 and 200 Days") + theme_minimal() + 
   theme(title = element_text(face = "bold", size = 10))
 
-ds %>% filter(cultivar == "CH") %>% filter(duration_to_budbreak <= 50) %>% count()
+ds %>% filter(cultivar == "CH") %>% filter(status == 1) %>% filter(duration_to_budbreak <= 50) %>% count()
 1229/1644
 #75% of chard bud break happens within the first 50 days.
 
-ds %>% filter(cultivar == "CS") %>% count()
+ds %>% filter(cultivar == "CS") %>% filter(status ==1) %>% filter(duration_to_budbreak <= 50) %>% count()
 1036/1644
 #63% of CS bud break happens with first 50 days 
 
@@ -115,6 +154,44 @@ ds %>% ggplot(aes(x = duration_to_budbreak)) +
   theme(title = element_text(face = "bold", size = 10, color = "white"),
         panel.background = element_rect(fill = "grey"),
         plot.background = element_rect(fill = "dodgerblue1"))
+
+ds %>% group_by(cultivar) %>% summarize(avg_duration_to_budbreak = mean(duration_to_budbreak))
+
+ds %>% ggplot(aes(x = duration_to_budbreak)) + 
+        geom_histogram(aes(fill = cultivar), color = "black") + 
+        facet_wrap(~cultivar) +
+        scale_fill_manual(values = c("gold", "darkred")) + 
+        labs(title = "Chardonnay has 12% More Bud Break than Cabernet Sauvignon Within First 50 Days", 
+                             subtitle = "Secondary Bud Break Period at Day 150",
+                             y = "Count") + theme_minimal() + 
+  theme(title = element_text(face = "bold", size = 10, color = "white"),
+        panel.background = element_rect(fill = "grey"),
+        plot.background = element_rect(fill = "dodgerblue1"))
+
+
+ds %>% filter(duration_to_budbreak > 125) %>% group_by(cultivar) %>% summarize(censored_obs = sum(status == 0))
+
+#CH has 70% more censored clippings after 125 days 
+
+
+#Look at bud break distribution only of the cutting where bud break occured: 
+ds %>% filter(status == 1) %>% ggplot(aes(x = duration_to_budbreak)) + 
+        geom_histogram(aes(fill = cultivar), color = "black") + 
+        facet_wrap(~cultivar) +
+        scale_fill_manual(values = c("gold", "darkred")) + 
+        labs(title = "Among samples that did budbreak,\n75% of Chardonnary buds broke within first 50 days",
+             subtitle = "63% of Cabernet Sauvignon occured within first 50 days", 
+             y = "Count", x = "Duration to Budbreak") + theme_minimal() + 
+  theme(title = element_text(face = "bold", size = 10, color = "white"),
+        panel.background = element_rect(fill = "grey"),
+        plot.background = element_rect(fill = "dodgerblue1"))
+
+
+
+ds %>% median(duration_to_budbreak)
+
+median(ds$duration_to_budbreak)
+
 ```
 
 
@@ -124,7 +201,6 @@ surv_object=Surv(ds$duration_to_budbreak,ds$status)
                    
 km.buds=survfit(surv_object~ds$cultivar) 
 summary(km.buds)
-
 
 ```
 
@@ -141,5 +217,71 @@ log rank test
 
 ```{r}
 survdiff(Surv(ds$duration_to_budbreak,ds$status)~ds$cultivar)
+```
+
+
+```{r}
+ds2 = ds %>% sample_n(500, replace = FALSE) 
+
+ds2 %>% group_by(cultivar) %>% count()
+
+surv_object2=Surv(ds2$duration_to_budbreak,ds2$status)
+                   
+                   
+survfit(surv_object2~ds2$cultivar) 
+
+ggsurvplot(fit=survfit(surv_object2~ds2$cultivar) , data=ds2,           
+						legend = "bottom",            
+						risk.table = F,conf.int=T) +   
+					 labs(        
+						title="Dormancy Period for Chardonnay vs. Carbernet Sauvignon",        
+								x="Time to Budbreak")
+
+survdiff(Surv(ds2$duration_to_budbreak,ds2$status)~ds2$cultivar)
+```
+
+
+```{r}
+ds3 = ds %>% sample_n(3000, replace = FALSE)
+ds3 %>% group_by(cultivar) %>% count()
+
+
+surv_object3=Surv(ds3$duration_to_budbreak,ds3$status)
+                   
+                   
+survfit(surv_object3~ds3$cultivar) 
+
+ggsurvplot(fit=survfit(surv_object3~ds3$cultivar) , data=ds3,           
+						legend = "bottom",            
+						risk.table = F,conf.int=T) +   
+					 labs(        
+						title="Dormancy Period for Chardonnay vs. Carbernet Sauvignon",        
+								x="Time to Budbreak")
+
+survdiff(Surv(ds3$duration_to_budbreak,ds3$status)~ds3$cultivar)
+
+```
+```{r}
+nrow(ds)
+
+sample_seq = seq(from = 100, to = 3100, by = 200)
+
+for (i in sample_seq){
+  ds3 = ds %>% sample_n(i, replace = FALSE)
+  surv_object3=Surv(ds3$duration_to_budbreak,ds3$status)
+                   
+  survfit(surv_object3~ds3$cultivar) 
+
+  plot = ggsurvplot(fit=survfit(surv_object3~ds3$cultivar) , data=ds3,           
+						legend = "bottom",            
+						risk.table = F,conf.int=T) +   
+					 labs(        
+						title="Dormancy Period for Chardonnay vs. Carbernet Sauvignon",        
+								x="Time to Budbreak")
+
+  test_result = survdiff(Surv(ds3$duration_to_budbreak,ds3$status)~ds3$cultivar)
+  print(test_result)
+  #print(plot)
+}
 ```
 
