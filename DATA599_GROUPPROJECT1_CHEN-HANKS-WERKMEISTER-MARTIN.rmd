@@ -1,0 +1,235 @@
+---
+title: 'Survival Analysis Group Project I: Case Study 3'
+author: "Phil Chen, Charles Hanks, & Luke Werkmeister-Martin"
+date: "2023-02-09"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+# BUD DORMANCY TRENDS OF VINE CLIPPINGS 
+
+## Description: 
+Shoots of Chardonnay (CH) and Cabernet Sauvignon (CS) were sampled weekly starting in August and ending around the first week of December from 2013 to 2016. Nodes from the third to the fifth basal position were clipped in single-node cuttings. Eighteen cuttings were used per sample during the first three years and 30 cuttings were used for the final year. Cuttings were placed on aluminum trays filled with moist sand substrate. The trays were placed in a growth chamber under forcing conditions at a temperature of 24±2°C with 15 hours of light. Cuttings were observed every two days and the number of days between sampling and the appearance of a green leaf tip in the buds, classified as budbreak was recorded and named duration to budbreak. For the samples that were collected from 2013 to 2015, the recording of duration to budbreak was carried out until the last week of March of the subsequent year. For samples from 2016, the evaluation finished at the end of February of 2017. Data were analyzed based on the time-to-event characteristics of the variable in order to estimate the endodormancy onset and release. Data includes the year of the sample, the sampling date, the sampling day of year  (Julian calendar), cultivar, # of cuttings of each sample, budbreak day in day of year  (Julian calendar), duration to budbreak (budbreak day minus sampling day) and censored data.  
+
+## Primary Question of Interest: 
+What is the "typical" dormancy period for Chardonnay cuttings and Cabernet Sauvignon cuttings?  Do they differ substantially?
+
+## Data Source: 
+<https://data.mendeley.com/datasets/txtm7vwssm/1>
+
+##Dataset: 
+budClippings.xlsx
+
+Preparing dataset budClippings.xlsx for analysis: 
+```{r}
+knitr::opts_knit$set(root.dir = "/Users/charleshanks/repos/surv-analysis-bud-break")
+
+
+library(tidyverse)
+library(readxl)
+library(skimr)
+library(survival)
+library(survminer)
+library(broom)
+
+
+ds = read_excel('/Users/charleshanks/repos/surv-analysis-bud-break/budClippings.xlsx')
+
+#Creating status column so that 0 = censored, 1 = event
+ds$status = ifelse(ds$Censored==0,1,0)
+
+#Addiing index column so give a unique ID for each observation: 
+ds$index = as.factor(1:nrow(ds))
+
+#standardizing colnames, removing spaces
+ds = ds %>% rename_all(funs(tolower(.))) %>% 
+  rename_all(funs(str_replace_all(., " ", "_")))
+
+```
+
+
+Event plot:
+```{r}
+ds %>% ggplot() + 
+		geom_segment(aes(x = 0, y = fct_reorder(index, duration_to_budbreak,.desc = TRUE), 
+										xend = duration_to_budbreak, yend = fct_reorder(index, duration_to_budbreak,.desc = TRUE),color = as.factor(status))) + 
+		geom_point(aes(x = duration_to_budbreak, y = index, color = as.factor(status))) + facet_wrap(cultivar~.) + 
+    labs(y = "Observation", x = "Duration to Budbreak")
+	
+```
+
+Sampling data and graphing event plot by cultivar: 
+```{r}
+ch = ds %>% filter(cultivar == "CH")
+cs = ds %>% filter(cultivar == "CS")
+
+ch50 = sample_n(ch,50, replace = FALSE)
+cs50 = sample_n(cs,50, replace = FALSE)
+
+ch25 = sample_n(ch,25, replace = FALSE)
+cs25 = sample_n(cs,25, replace = FALSE)
+
+ch50 = ch50 %>% select(-index)
+ch50$index = 1:nrow(ch50)
+
+ch50$index = as.factor(ch50$index)
+
+cs50 = cs50 %>% select(-index)
+cs50$index = 51:100
+
+cs50$index = as.factor(cs50$index)
+
+ch50 %>%
+  ggplot() + 
+	  geom_segment(aes(x = 0, y = fct_reorder(index, duration_to_budbreak,.desc = TRUE), 
+											 xend = duration_to_budbreak, yend = fct_reorder(index, duration_to_budbreak,.desc = TRUE))) + 
+	  geom_point(aes(x = duration_to_budbreak, y = index,color = as.factor(status))) + 
+    labs(title = "82% of 50 Randomly Sampled CH Buds break before Day 50",
+         y = "Cutting ID",
+         x = "Duration to Budbreak",
+         color = "Event Status") + 
+    scale_color_manual(values = c("black", "green")) +
+    geom_vline(xintercept = 50, linetype = "longdash", color = "black") + 
+    theme(title = element_text(face = "bold", size = 13, color = "gold"),
+        panel.background = element_rect(fill = "white"),
+        plot.background = element_rect(fill = "dodgerblue1"),
+        panel.grid.minor = element_line(color = "grey"),
+        legend.key = element_rect(fill = "dodgerblue1"),
+        legend.background = element_rect(fill = "dodgerblue1"))
+
+cs50 %>%
+  ggplot() + 
+	  geom_segment(aes(x = 0, y = fct_reorder(index, duration_to_budbreak,.desc = TRUE), 
+											 xend = duration_to_budbreak, yend = fct_reorder(index, duration_to_budbreak,.desc = TRUE))) + 
+	  geom_point(aes(x = duration_to_budbreak, y = index,color = as.factor(status))) + 
+    labs(title = "74% of 50 Randomly Sampled CS Buds break before Day 50 ",
+	       y = "Cutting ID",
+         x = "Duration to Budbreak",
+         color = "Event Status") + 
+    scale_color_manual(values = c("black", "green")) +
+    geom_vline(xintercept = 50, linetype = "longdash", color = "black") +
+    theme(title = element_text(face = "bold", size = 13, color = "darkred"),
+        panel.background = element_rect(fill = "white"),
+        plot.background = element_rect(fill = "dodgerblue1"),
+        panel.grid.minor = element_line(color = "grey"),
+        legend.key = element_rect(fill = "dodgerblue1"),
+        legend.background = element_rect(fill = "dodgerblue1"))
+
+ch50 %>% filter(duration_to_budbreak <= 50) %>% nrow()/50
+cs50 %>% filter(duration_to_budbreak <=50) %>% nrow()/50
+
+ds %>% group_by(cultivar) %>% summarize(n = n(), median = median(duration_to_budbreak), mean = mean(duration_to_budbreak))
+
+```
+
+
+Examining distribution of bud break with histograms:
+```{r}
+#Chardonnay's bud break distribution
+ds %>% filter(cultivar == "CH") %>% ggplot(aes(x = duration_to_budbreak)) + geom_histogram(color = "black",fill = "darkgoldenrod1") + 
+  labs(title = "Chard", y = "Count") + labs(title = "75% of Bud Break for Chardonnay Occured Within First 50 Days", subtitle = "Second Bud Break Period Occurs Between 150 and 200 Days") + theme_minimal() + 
+  theme(title = element_text(face = "bold", size = 10))
+
+ds %>% filter(cultivar == "CH") %>% filter(status == 1) %>% filter(duration_to_budbreak <= 50) %>% count()
+1229/1644
+#75% of chard bud break happens within the first 50 days.
+
+ds %>% filter(cultivar == "CS") %>% filter(status ==1) %>% filter(duration_to_budbreak <= 50) %>% count()
+1036/1644
+#63% of CS bud break happens with first 50 days 
+
+
+ds %>% filter(cultivar == "CS") %>% ggplot(aes(x = duration_to_budbreak)) + geom_histogram() + labs(title = "63")
+
+
+ds %>% filter(censored== 1) %>% ggplot(aes(x = duration_to_budbreak)) + geom_histogram()
+
+#histogram
+ds %>% ggplot(aes(x = duration_to_budbreak)) + 
+        geom_histogram(aes(fill = cultivar), color = "black") + 
+        facet_wrap(~cultivar) +
+        scale_fill_manual(values = c("gold", "darkred")) + 
+        labs(title = "Chardonnay has 12% More Bud Break than Cabernet Sauvignon Within First 50 Days", 
+                             subtitle = "Secondary Bud Break Period at Day 150",
+                             y = "Count") + theme_minimal() + 
+  theme(title = element_text(face = "bold", size = 10, color = "white"),
+        panel.background = element_rect(fill = "grey"),
+        plot.background = element_rect(fill = "dodgerblue1"))
+
+
+ds %>% filter(duration_to_budbreak > 125) %>% group_by(cultivar) %>% summarize(censored_obs = sum(status == 0))
+
+#CH has 70% more censored clippings after 125 days 
+
+
+#Look at bud break distribution only of the cutting where bud break occured: 
+ds %>% filter(status == 1) %>% ggplot(aes(x = duration_to_budbreak)) + 
+        geom_histogram(aes(fill = cultivar), color = "black") + 
+        facet_wrap(~cultivar) +
+        scale_fill_manual(values = c("gold", "darkred")) + 
+        labs(title = "Among samples that did budbreak,\n75% of Chardonnary buds broke within first 50 days",
+             subtitle = "63% of Cabernet Sauvignon occured within first 50 days", 
+             y = "Count", x = "Duration to Budbreak") + theme_minimal() + 
+  theme(title = element_text(face = "bold", size = 10, color = "white"),
+        panel.background = element_rect(fill = "grey"),
+        plot.background = element_rect(fill = "dodgerblue1"))
+
+
+
+```
+
+Creating Surv Object & KM Table: 
+```{r}
+surv_object=Surv(ds$duration_to_budbreak,ds$status)
+                  
+km.buds=survfit(surv_object~ds$cultivar) 
+
+```
+
+
+What is typical dormancy period for Chardonnay cuttings and Cabernet cuttings? Do they differ substantially? 
+```{r}
+ggsurvplot(fit=km.buds, data=ds,           
+						legend = "bottom",            
+						risk.table = F,conf.int=T, surv.median.line = "hv") +   
+					 labs(        
+						title="Dormancy Period for Chardonnay vs. Carbernet Sauvignon",        
+								x="Time to Budbreak", y = "Dormancy Probability")
+
+#median time-to-budbreak for CH: 27 days
+#median time-to-budbreak for CS: 36 days
+```
+Log-Rank Test for difference between time-to-budbreak of CH and CS cultivars: 
+
+```{r}
+survdiff(Surv(ds$duration_to_budbreak,ds$status)~ds$cultivar)
+```
+
+
+P-value of .04 given n = 3288 is not convincing. Could the large sample size be affectign p-value? It is just under threshold of rejecting our null hypothesis.
+
+Taking random samples of varying sizes, running log-rank test on each subsample: 
+```{r}
+sample_seq = seq(100,3100, by = 200)
+
+for (i in sample_seq){
+  ds3 = ds %>% sample_n(i, replace = FALSE)
+  surv_object3=Surv(ds3$duration_to_budbreak,ds3$status)
+                   
+  survfit(surv_object3~ds3$cultivar) 
+  p_val = as.numeric(glance(survdiff(Surv(ds3$duration_to_budbreak,ds3$status)~ds3$cultivar))[1,3])
+  
+  plot = ggsurvplot(fit=survfit(surv_object3~ds3$cultivar), data=ds3, legend = "bottom", risk.table = F,conf.int=T) + 
+					 labs(title=paste("Sample size", i, sep = " " ),
+						    subtitle = paste("p-value", p_val, sepd = " "),
+						    y = "Dormancy Probability",
+								x="Time to Budbreak")
+  
+  print(plot)
+}
+
+
+```
+ 
+Conclusion: The majority of these log-rank tests produce a p-value > .05. We cannot conclude that there is statistical significant difference in time to budbreak between CH and CS cuttings. 
