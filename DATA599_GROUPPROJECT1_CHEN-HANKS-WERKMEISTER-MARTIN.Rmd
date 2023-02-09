@@ -24,15 +24,18 @@ library(survminer)
 
 ds = read_excel('/Users/charleshanks/repos/surv-analysis-bud-break/budClippings.xlsx')
 
+
+#standardizing colnames, removing spaces
+ds = ds %>% rename_all(funs(tolower(.))) %>% 
+  rename_all(funs(str_replace_all(., " ", "_")))
+
 #Creating status column so that 0 = censored, 1 = event
 ds$status = ifelse(ds$censored==0,1,0)
 
 #Addiing index column so give a unique ID for each observation: 
 ds$index = as.factor(1:nrow(ds))
 
-#standardizing colnames, removing spaces
-ds = ds %>% rename_all(funs(tolower(.))) %>% 
-  rename_all(funs(str_replace_all(., " ", "_")))
+
 
 ```
 
@@ -42,7 +45,8 @@ Event plot:
 ds %>% ggplot() + 
 		geom_segment(aes(x = 0, y = fct_reorder(index, duration_to_budbreak,.desc = TRUE), 
 										xend = duration_to_budbreak, yend = fct_reorder(index, duration_to_budbreak,.desc = TRUE))) + 
-		geom_point(aes(x = duration_to_budbreak, y = index), color = "blue") + facet_wrap(cultivar~.) 
+		geom_point(aes(x = duration_to_budbreak, y = index), color = "blue") + facet_wrap(cultivar~.)+
+  theme(axis.text.y = element_blank(),axis.ticks.y = element_blank())
       
 	
 ```
@@ -132,10 +136,10 @@ summary(km.buds)
 ```{r}
 ggsurvplot(fit=km.buds, data=ds,           
 						legend = "bottom",            
-						risk.table = F,conf.int=T) +   
+						risk.table = F,conf.int=T, pval = T, surv.median.line = "hv") +   
 					 labs(        
 						title="Dormancy Period for Chardonnay vs. Carbernet Sauvignon",        
-								x="Time to Budbreak")
+								x="Time to Budbreak", y="Dormancy Probability")
 ```
 log rank test 
 
